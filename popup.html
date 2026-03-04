@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 280px;
+      font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #16213e, #0f3460);
+      padding: 16px 18px;
+      border-bottom: 1px solid #e94560;
+    }
+
+    .header h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .header p {
+      font-size: 11px;
+      color: #aaa;
+      margin-top: 3px;
+    }
+
+    .body {
+      padding: 16px 18px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .toggle-label {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .toggle {
+      position: relative;
+      width: 46px;
+      height: 26px;
+    }
+
+    .toggle input { display: none; }
+
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: #333;
+      border-radius: 34px;
+      cursor: pointer;
+      transition: .3s;
+    }
+
+    .toggle-slider:before {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: .3s;
+    }
+
+    input:checked + .toggle-slider { background: #e94560; }
+    input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+    .site-badges {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge.youtube { background: #ff0000; color: #fff; }
+    .badge.udemy { background: #a435f0; color: #fff; }
+
+    .tip {
+      background: #16213e;
+      border-left: 3px solid #e94560;
+      padding: 10px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #bbb;
+      line-height: 1.6;
+    }
+
+    .tip strong { color: #ffe066; }
+
+    .footer {
+      padding: 10px 18px;
+      font-size: 11px;
+      color: #555;
+      text-align: center;
+      border-top: 1px solid #222;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎬 영한 자막 번역기</h1>
+  <p>실시간 영어 → 한국어 자막 오버레이</p>
+</div>
+
+<div class="body">
+  <div class="toggle-row">
+    <span class="toggle-label">번역 자막 활성화</span>
+    <label class="toggle">
+      <input type="checkbox" id="toggleEnabled" />
+      <span class="toggle-slider"></span>
+    </label>
+  </div>
+
+  <div class="site-badges">
+    <span class="badge youtube">▶ YouTube</span>
+    <span class="badge udemy">● Udemy</span>
+  </div>
+
+  <div class="tip">
+    <strong>사용 방법</strong><br>
+    1. 영상에서 영어 자막을 켜세요<br>
+    2. 이 확장이 자동으로 감지해서<br>
+    &nbsp;&nbsp;&nbsp;영문 + 한글을 함께 표시합니다<br>
+    <br>
+    <strong>노란색</strong> = 한국어 번역<br>
+    <strong>흰색</strong> = 원문 영어
+  </div>
+</div>
+
+<div class="footer">
+  Google 번역 사용 · 무료 · API 키 불필요
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>

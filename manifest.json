@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "영한 자막 번역기",
+  "version": "1.0",
+  "description": "유튜브/유데미 영어 자막을 실시간 영한 자막으로 변환합니다.",
+  "permissions": ["storage", "webRequest"],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "https://www.udemy.com/*",
+    "https://translate.googleapis.com/*",
+    "https://vtt-c.udemycdn.com/*",
+    "https://*.udemycdn.com/*"
+  ],
+  "content_scripts": [{
+    "matches": ["https://www.youtube.com/*", "https://www.udemy.com/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "영한 자막 번역기" }
+}
