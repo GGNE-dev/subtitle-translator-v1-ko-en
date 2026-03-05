@@ -49,30 +49,64 @@ function parseYouTubeJSON3(json) {
   return cues;
 }
 
+const MAX_DISPLAY_CHARS = 200; // 화면 표시용 길이 제한 (번역에는 영향 없음)
+
+// 마침표(.)로만 문장 끝 판단
+const isSentenceEnd = (text) => /[.]["']?\s*$/.test(text.trim());
+
 function mergeCues(cues) {
   if (!cues.length) return cues;
   const merged = [{ ...cues[0] }];
   for (let i = 1; i < cues.length; i++) {
     const prev = merged[merged.length - 1];
     const curr = cues[i];
-    const gap = curr.start - prev.end;
-    const incomplete = /[,;]\s*$/.test(prev.text) || !/[.!?'"]\s*$/.test(prev.text);
-    if (gap <= 0.3 && incomplete) {
+    // 오직 마침표로만 분리 — 글자 수 제한 없음
+    if (isSentenceEnd(prev.text)) {
+      merged.push({ ...curr });
+    } else {
       prev.text = prev.text.trim() + ' ' + curr.text.trim();
       prev.end = curr.end;
-    } else {
-      merged.push({ ...curr });
     }
   }
   return merged;
 }
 
+// 번역 후 화면 표시용으로만 긴 cue 분리 (번역 품질에 영향 없음)
+function splitLongCues(cues) {
+  const result = [];
+  for (const cue of cues) {
+    if (cue.text.length <= MAX_DISPLAY_CHARS) {
+      result.push(cue);
+      continue;
+    }
+    const parts = cue.text.match(/[^.]+[.]?\s*/g) || [cue.text];
+    const koText = cue.translated || '';
+    const koParts = koText ? (koText.match(/[^.]+[.]?\s*/g) || null) : null;
+    const duration = cue.end - cue.start;
+    const totalLen = parts.reduce((s, t) => s + t.length, 0);
+    let time = cue.start;
+    parts.forEach((part, i) => {
+      const segDuration = Math.max(0.8, duration * (part.length / totalLen));
+      result.push({
+        start: time,
+        end: time + segDuration,
+        text: part.trim(),
+        translated: koParts ? (koParts[i] || '').trim() : koText
+      });
+      time += segDuration;
+    });
+  }
+  return result;
+}
+
 async function translateCues(cues) {
   const BATCH = 10;
   for (let i = 0; i < cues.length; i += BATCH) {
-    await Promise.all(cues.slice(i, i + BATCH).map(async c => {
+    const batch = cues.slice(i, i + BATCH);
+    // 순차 처리로 로그 순서 보장 + 번역 캐시 활용
+    for (const c of batch) {
       c.translated = await translateText(c.text);
-    }));
+    }
   }
   return cues;
 }
@@ -80,14 +114,20 @@ async function translateCues(cues) {
 async function translateVTT(url) {
   const res = await fetch(url);
   const text = await res.text();
-  return translateCues(mergeCues(parseVTT(text)));
+  // 순서: 병합 → 번역(완전한 문장으로) → 분리(표시용)
+  const merged = mergeCues(parseVTT(text));
+  const translated = await translateCues(merged);
+  return splitLongCues(translated);
 }
 
 async function translateYouTube(timedtextUrl) {
   const url = timedtextUrl.replace(/&fmt=[^&]*/g, '') + '&fmt=json3';
   const res = await fetch(url);
   const json = await res.json();
-  return translateCues(mergeCues(parseYouTubeJSON3(json)));
+  // 순서: 병합 → 번역(완전한 문장으로) → 분리(표시용)
+  const merged = mergeCues(parseYouTubeJSON3(json));
+  const translated = await translateCues(merged);
+  return splitLongCues(translated);
 }
 
 const vttByTab = new Map();
@@ -148,4 +188,3 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
     return true;
   }
 });
-

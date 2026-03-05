@@ -60,19 +60,21 @@
     overlayEl.style.cssText = `
       position: fixed; bottom: 10%; left: 50%; transform: translateX(-50%);
       z-index: 2147483647; text-align: center; pointer-events: none;
-      max-width: 85vw; width: max-content;
+      width: 85vw; max-width: 960px;
     `;
     overlayEl.innerHTML = `
-      <div id="bs-en" style="color:#fff;font-size:17px;font-weight:500;
+      <div id="bs-en" style="color:#fff;font-size:16px;font-weight:500;
         font-family:'Noto Sans KR','Apple SD Gothic Neo',sans-serif;
-        text-shadow:0 0 8px #000,1px 1px 4px #000;
-        line-height:1.5;margin-bottom:4px;padding:3px 12px;
-        background:rgba(0,0,0,0.5);border-radius:5px;display:none;"></div>
-      <div id="bs-ko" style="color:#ffe066;font-size:20px;font-weight:700;
+        text-shadow:0 0 6px #000,1px 1px 3px #000;
+        line-height:1.5;margin-bottom:4px;padding:4px 14px;
+        background:rgba(0,0,0,0.6);border-radius:6px;display:none;
+        word-break:break-word;white-space:normal;"></div>
+      <div id="bs-ko" style="color:#ffe066;font-size:18px;font-weight:700;
         font-family:'Noto Sans KR','Apple SD Gothic Neo',sans-serif;
-        text-shadow:0 0 8px #000,1px 1px 4px #000;
-        line-height:1.5;padding:3px 12px;
-        background:rgba(0,0,0,0.6);border-radius:5px;display:none;"></div>
+        text-shadow:0 0 6px #000,1px 1px 3px #000;
+        line-height:1.5;padding:4px 14px;
+        background:rgba(0,0,0,0.65);border-radius:6px;display:none;
+        word-break:break-word;white-space:normal;"></div>
     `;
     document.body.appendChild(overlayEl);
   }
@@ -90,40 +92,78 @@
     if (!overlayEl) createOverlay();
     const enEl = overlayEl.querySelector('#bs-en');
     const koEl = overlayEl.querySelector('#bs-ko');
-    if (en !== undefined) { enEl.textContent = en || ''; enEl.style.display = en ? 'block' : 'none'; }
-    if (ko !== undefined) { koEl.textContent = ko || ''; koEl.style.display = ko ? 'block' : 'none'; }
+    if (en !== undefined) {
+      enEl.textContent = en || '';
+      enEl.style.display = en ? 'block' : 'none';
+    }
+    if (ko !== undefined) {
+      koEl.textContent = ko || '';
+      koEl.style.display = ko ? 'block' : 'none';
+    }
   }
 
   function hideSubtitle() { showSubtitle('', ''); }
 
-  // ── 공통: 싱크 루프 ──────────────────────────────────────
+  // ── 공통: 싱크 루프 (requestAnimationFrame 기반) ──────────
   function createSyncLoop(getCues) {
-    let syncTimer = null;
+    let rafId = null;
     let lastCueIdx = -1;
+    let video = null;
+    let videoListeners = [];
 
-    function start() {
-      if (syncTimer) clearInterval(syncTimer);
-      syncTimer = setInterval(() => {
-        if (!enabled) return;
-        const cues = getCues();
-        if (!cues.length) return;
-        const video = document.querySelector('video');
-        if (!video) return;
-        const t = video.currentTime;
-        const idx = cues.findIndex(c => t >= c.start && t <= c.end);
-        if (idx === -1) {
-          if (lastCueIdx !== -1) { hideSubtitle(); lastCueIdx = -1; }
-          return;
-        }
-        if (idx === lastCueIdx) return;
-        lastCueIdx = idx;
-        const cue = cues[idx];
-        showSubtitle(cue.text, cue.translated || '');
-      }, 100);
+    function tick() {
+      rafId = requestAnimationFrame(tick);
+      if (!enabled || !video) return;
+
+      const cues = getCues();
+      if (!cues.length) return;
+
+      const t = video.currentTime;
+      const idx = cues.findIndex(c => t >= c.start - 0.5 && t <= c.end + 0.5);
+
+      if (idx === -1) {
+        if (lastCueIdx !== -1) { hideSubtitle(); lastCueIdx = -1; }
+        return;
+      }
+      if (idx === lastCueIdx) return;
+      lastCueIdx = idx;
+      showSubtitle(cues[idx].text, cues[idx].translated || '');
     }
 
-    function reset() { lastCueIdx = -1; hideSubtitle(); }
-    function stop() { if (syncTimer) { clearInterval(syncTimer); syncTimer = null; } }
+    function onSeek() {
+      // seek 시 강제로 현재 위치 다시 계산
+      lastCueIdx = -1;
+    }
+
+    function start() {
+      // video 요소 찾기 (없으면 잠시 후 재시도)
+      video = document.querySelector('video');
+      if (!video) { setTimeout(start, 500); return; }
+
+      // seek/pause/play 이벤트로 즉시 반응
+      const events = ['seeked', 'play', 'pause'];
+      events.forEach(ev => {
+        const fn = onSeek;
+        video.addEventListener(ev, fn);
+        videoListeners.push([ev, fn]);
+      });
+
+      if (rafId) cancelAnimationFrame(rafId);
+      tick();
+    }
+
+    function reset() {
+      lastCueIdx = -1;
+      hideSubtitle();
+    }
+
+    function stop() {
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      if (video) {
+        videoListeners.forEach(([ev, fn]) => video.removeEventListener(ev, fn));
+        videoListeners = [];
+      }
+    }
 
     return { start, reset, stop };
   }
@@ -183,6 +223,16 @@
       sync.reset();
       requestTranslation('translateYouTube', url, (result) => { cues = result; });
     }
+
+
+    // const video = document.querySelector('video');
+    // if (video && video.muted) {
+    //   video.addEventListener('volumechange', () => {
+    //     if (!video.muted) pollTimer = pollUrl('getTimedtextUrl', load);
+    //   }, { once: true });
+    // } else {
+    //   pollTimer = pollUrl('getTimedtextUrl', load);
+    // }
 
     pollTimer = pollUrl('getTimedtextUrl', load);
 
