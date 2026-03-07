@@ -1,6 +1,8 @@
 # 🎬 영한 자막 번역기 (ko-en Subtitle Translator)
 
+> 영어로 된 영상과 전문 강의를 보다 효율적으로 시청하고 싶어 만들게 된 크롬 확장 프로그램입니다. 
 > YouTube · Udemy 영어 자막을 **영문 + 한국어**로 실시간 오버레이 표시하는 브라우저 확장 프로그램입니다.
+> 꾸준하게 직접 테스트하며 사용감 개선, 기능 확장을 계획 중입니다. 오류 제보 환영합니다.
 
 ![version](https://img.shields.io/badge/version-1.0-blue)
 ![browser](https://img.shields.io/badge/browser-Chrome%20%7C%20Brave-orange)
