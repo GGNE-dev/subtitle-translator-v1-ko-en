@@ -19,14 +19,43 @@ function downloadFile(content, filename) {
   URL.revokeObjectURL(url);
 }
 
+// 파일명에 못 쓰는 특수문자 제거
+function sanitizeFilename(title) {
+  return title
+    .replace(/[\\/:*?"<>|]/g, '')  // Windows 금지 문자
+    .replace(/\s+/g, '_')          // 공백 → 언더스코어
+    .trim()
+    .slice(0, 80);                 // 너무 길면 자르기
+}
+
 function handleExport(format) {
-  chrome.runtime.sendMessage({ type: 'exportCues', format }, (res) => {
-    if (!res?.content) {
-      document.getElementById('exportMsg').style.display = 'block';
-      return;
-    }
-    document.getElementById('exportMsg').style.display = 'none';
-    downloadFile(res.content, format === 'md' ? 'subtitle.md' : 'subtitle.txt');
+  // 현재 활성 탭 제목 가져오기
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const rawTitle = tabs[0]?.title || 'subtitle';
+    const baseName = sanitizeFilename(rawTitle);
+
+    // 중복 방지: storage에서 사용된 이름 목록 확인
+    chrome.storage.local.get(['usedFilenames'], (r) => {
+      const used = r.usedFilenames || {};
+      const key = baseName + '.' + format;
+      const count = used[key] || 0;
+
+      const filename = count === 0
+        ? `${baseName}.${format}`
+        : `${baseName}_(${count}).${format}`;
+
+      used[key] = count + 1;
+      chrome.storage.local.set({ usedFilenames: used });
+
+      chrome.runtime.sendMessage({ type: 'exportCues', format }, (res) => {
+        if (!res?.content) {
+          document.getElementById('exportMsg').style.display = 'block';
+          return;
+        }
+        document.getElementById('exportMsg').style.display = 'none';
+        downloadFile(res.content, filename);
+      });
+    });
   });
 }
 

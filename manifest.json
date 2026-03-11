@@ -3,7 +3,7 @@
   "name": "영한 자막 번역기",
   "version": "1.0",
   "description": "유튜브/유데미 영어 자막을 실시간 영한 자막으로 변환합니다.",
-  "permissions": ["storage", "webRequest"],
+  "permissions": ["storage", "webRequest", "tabs"],
   "host_permissions": [
     "https://www.youtube.com/*",
     "https://www.udemy.com/*",

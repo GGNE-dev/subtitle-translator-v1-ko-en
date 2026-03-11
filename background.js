@@ -14,22 +14,36 @@ async function translateText(text) {
   return translated;
 }
 
+// 자막 파싱 함수
 function parseVTT(vttText) {
   const cues = [];
-  const blocks = vttText.split(/\n\n+/);
-  for (const block of blocks) {
-    const lines = block.trim().split('\n');
-    const timeLineIdx = lines.findIndex(l => l.includes('-->'));
-    if (timeLineIdx === -1) continue;
-    const timeMatch = lines[timeLineIdx].match(
+  const lines = vttText.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.includes('-->')) continue;
+
+    const timeMatch = line.match(
       /(\d{1,2}:)?(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(\d{1,2}:)?(\d{2}):(\d{2})[.,](\d{3})/
     );
     if (!timeMatch) continue;
+
     const toSec = (h, m, s, ms) =>
       (parseInt(h || 0) * 3600) + (parseInt(m) * 60) + parseInt(s) + parseInt(ms) / 1000;
     const start = toSec(timeMatch[1], timeMatch[2], timeMatch[3], timeMatch[4]);
     const end   = toSec(timeMatch[5], timeMatch[6], timeMatch[7], timeMatch[8]);
-    const text  = lines.slice(timeLineIdx + 1).join(' ')
+
+    // 텍스트: 다음 줄부터 다음 --> 또는 빈 줄 전까지
+    const textLines = [];
+    let j = i + 1;
+    while (j < lines.length && !lines[j].includes('-->')) {
+      const t = lines[j].trim();
+      // 숫자만 있는 줄(cue 번호)은 건너뜀
+      if (t && !/^\d+$/.test(t)) textLines.push(t);
+      j++;
+    }
+
+    const text = textLines.join(' ')
       .replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').trim();
     if (text) cues.push({ start, end, text });
   }
