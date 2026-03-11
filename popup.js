@@ -10,3 +10,25 @@ chrome.storage.local.get(['enabled'], (result) => {
 toggle.addEventListener('change', () => {
   chrome.storage.local.set({ enabled: toggle.checked });
 });
+
+function downloadFile(content, filename) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function handleExport(format) {
+  chrome.runtime.sendMessage({ type: 'exportCues', format }, (res) => {
+    if (!res?.content) {
+      document.getElementById('exportMsg').style.display = 'block';
+      return;
+    }
+    document.getElementById('exportMsg').style.display = 'none';
+    downloadFile(res.content, format === 'md' ? 'subtitle.md' : 'subtitle.txt');
+  });
+}
+
+document.getElementById('exportMd').addEventListener('click', () => handleExport('md'));
+document.getElementById('exportTxt').addEventListener('click', () => handleExport('txt'));

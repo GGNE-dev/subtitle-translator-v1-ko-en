@@ -1,6 +1,7 @@
 // background.js (release v1.0)
 
 const translationCache = new Map();
+let lastTranslatedCues = [];
 
 async function translateText(text) {
   if (!text?.trim()) return '';
@@ -111,12 +112,23 @@ async function translateCues(cues) {
   return cues;
 }
 
+function formatTime(sec) {
+  const m = Math.floor(sec / 60).toString().padStart(2, '0');
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
 async function translateVTT(url) {
   const res = await fetch(url);
   const text = await res.text();
+
   // 순서: 병합 → 번역(완전한 문장으로) → 분리(표시용)
   const merged = mergeCues(parseVTT(text));
   const translated = await translateCues(merged);
+
+  // 번역 내용 저장 
+  lastTranslatedCues = result;
+
   return splitLongCues(translated);
 }
 
@@ -127,6 +139,10 @@ async function translateYouTube(timedtextUrl) {
   // 순서: 병합 → 번역(완전한 문장으로) → 분리(표시용)
   const merged = mergeCues(parseYouTubeJSON3(json));
   const translated = await translateCues(merged);
+
+    // 번역 내용 저장 
+  lastTranslatedCues = result;
+
   return splitLongCues(translated);
 }
 
@@ -187,4 +203,28 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
     chrome.storage.local.get(['enabled'], r => sendResponse({ enabled: r.enabled !== false }));
     return true;
   }
+
+  if (req.type === 'exportCues') {
+    if (!lastTranslatedCues.length) {
+      sendResponse({ content: null }); return true;
+    }
+    if (req.format === 'md') {
+      const lines = ['# 영한 자막\n', '| 시간 | 영어 | 한국어 |', '|------|------|--------|'];
+      for (const c of lastTranslatedCues) {
+        lines.push(`| ${formatTime(c.start)} | ${c.text} | ${c.translated || ''} |`);
+      }
+      sendResponse({ content: lines.join('\n') });
+    } else {
+      const lines = [];
+      for (const c of lastTranslatedCues) {
+        lines.push(`[${formatTime(c.start)} ~ ${formatTime(c.end)}]`);
+        lines.push(`EN: ${c.text}`);
+        lines.push(`KO: ${c.translated || ''}`);
+        lines.push('');
+      }
+      sendResponse({ content: lines.join('\n') });
+    }
+    return true;
+  }
+
 });
