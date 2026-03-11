@@ -16,6 +16,8 @@
 - 전체화면 지원
 - YouTube, Udemy 지원
 - `Alt + Shift + O` 단축키로 빠르게 On/Off
+  
+📋 변경 이력 보기  ([HISTORY.md 참고](./HISTORY.md))
 
 ---
 
