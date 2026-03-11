@@ -1,7 +1,6 @@
 // background.js (release v1.0)
 
 const translationCache = new Map();
-let lastTranslatedCues = [];
 
 async function translateText(text) {
   if (!text?.trim()) return '';
@@ -127,9 +126,10 @@ async function translateVTT(url) {
   const translated = await translateCues(merged);
 
   // 번역 내용 저장 
-  lastTranslatedCues = result;
+  const result = splitLongCues(translated);
+  chrome.storage.local.set({ lastCues: result });
 
-  return splitLongCues(translated);
+  return result;
 }
 
 async function translateYouTube(timedtextUrl) {
@@ -141,9 +141,10 @@ async function translateYouTube(timedtextUrl) {
   const translated = await translateCues(merged);
 
     // 번역 내용 저장 
-  lastTranslatedCues = result;
+  const result = splitLongCues(translated);
+  chrome.storage.local.set({ lastCues: result });
 
-  return splitLongCues(translated);
+  return result;
 }
 
 const vttByTab = new Map();
@@ -205,26 +206,27 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
   }
 
   if (req.type === 'exportCues') {
-    if (!lastTranslatedCues.length) {
-      sendResponse({ content: null }); return true;
-    }
-    if (req.format === 'md') {
-      const lines = ['# 영한 자막\n', '| 시간 | 영어 | 한국어 |', '|------|------|--------|'];
-      for (const c of lastTranslatedCues) {
-        lines.push(`| ${formatTime(c.start)} | ${c.text} | ${c.translated || ''} |`);
+    chrome.storage.local.get(['lastCues'], (r) => {
+      const cues = r.lastCues;
+      if (!cues?.length) { sendResponse({ content: null }); return; }
+      if (req.format === 'md') {
+        const lines = ['# 영한 자막\n', '| 시간 | 영어 | 한국어 |', '|------|------|--------|'];
+        for (const c of cues) {
+          lines.push(`| ${formatTime(c.start)} | ${c.text} | ${c.translated || ''} |`);
+        }
+        sendResponse({ content: lines.join('\n') });
+      } else {
+        const lines = [];
+        for (const c of cues) {
+          lines.push(`[${formatTime(c.start)} ~ ${formatTime(c.end)}]`);
+          lines.push(`EN: ${c.text}`);
+          lines.push(`KO: ${c.translated || ''}`);
+          lines.push('');
+        }
+        sendResponse({ content: lines.join('\n') });
       }
-      sendResponse({ content: lines.join('\n') });
-    } else {
-      const lines = [];
-      for (const c of lastTranslatedCues) {
-        lines.push(`[${formatTime(c.start)} ~ ${formatTime(c.end)}]`);
-        lines.push(`EN: ${c.text}`);
-        lines.push(`KO: ${c.translated || ''}`);
-        lines.push('');
-      }
-      sendResponse({ content: lines.join('\n') });
-    }
+    });
+    
     return true;
   }
-
 });
