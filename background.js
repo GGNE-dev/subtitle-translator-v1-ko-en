@@ -111,13 +111,25 @@ async function translateCues(cues) {
   return cues;
 }
 
+function formatTime(sec) {
+  const m = Math.floor(sec / 60).toString().padStart(2, '0');
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
 async function translateVTT(url) {
   const res = await fetch(url);
   const text = await res.text();
+
   // 순서: 병합 → 번역(완전한 문장으로) → 분리(표시용)
   const merged = mergeCues(parseVTT(text));
   const translated = await translateCues(merged);
-  return splitLongCues(translated);
+
+  // 번역 내용 저장 
+  const result = splitLongCues(translated);
+  chrome.storage.local.set({ lastCues: result });
+
+  return result;
 }
 
 async function translateYouTube(timedtextUrl) {
@@ -127,7 +139,12 @@ async function translateYouTube(timedtextUrl) {
   // 순서: 병합 → 번역(완전한 문장으로) → 분리(표시용)
   const merged = mergeCues(parseYouTubeJSON3(json));
   const translated = await translateCues(merged);
-  return splitLongCues(translated);
+
+    // 번역 내용 저장 
+  const result = splitLongCues(translated);
+  chrome.storage.local.set({ lastCues: result });
+
+  return result;
 }
 
 const vttByTab = new Map();
@@ -185,6 +202,31 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
 
   if (req.type === 'getSettings') {
     chrome.storage.local.get(['enabled'], r => sendResponse({ enabled: r.enabled !== false }));
+    return true;
+  }
+
+  if (req.type === 'exportCues') {
+    chrome.storage.local.get(['lastCues'], (r) => {
+      const cues = r.lastCues;
+      if (!cues?.length) { sendResponse({ content: null }); return; }
+      if (req.format === 'md') {
+        const lines = ['# 영한 자막\n', '| 시간 | 영어 | 한국어 |', '|------|------|--------|'];
+        for (const c of cues) {
+          lines.push(`| ${formatTime(c.start)} | ${c.text} | ${c.translated || ''} |`);
+        }
+        sendResponse({ content: lines.join('\n') });
+      } else {
+        const lines = [];
+        for (const c of cues) {
+          lines.push(`[${formatTime(c.start)} ~ ${formatTime(c.end)}]`);
+          lines.push(`EN: ${c.text}`);
+          lines.push(`KO: ${c.translated || ''}`);
+          lines.push('');
+        }
+        sendResponse({ content: lines.join('\n') });
+      }
+    });
+    
     return true;
   }
 });
