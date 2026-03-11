@@ -29,6 +29,8 @@ function sanitizeFilename(title) {
 }
 
 function handleExport(format) {
+  const lang = document.querySelector('input[name="exportLang"]:checked').value;
+
   // 현재 활성 탭 제목 가져오기
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const rawTitle = tabs[0]?.title || 'subtitle';
@@ -37,17 +39,19 @@ function handleExport(format) {
     // 중복 방지: storage에서 사용된 이름 목록 확인
     chrome.storage.local.get(['usedFilenames'], (r) => {
       const used = r.usedFilenames || {};
-      const key = baseName + '.' + format;
+      const key = `${baseName}_${lang}.${format}`;
       const count = used[key] || 0;
 
+      const suffix = lang === 'en' ? '_영어자막' : '_영한자막';
       const filename = count === 0
-        ? `${baseName}.${format}`
-        : `${baseName}_(${count}).${format}`;
+        ? `${baseName}${suffix}.${format}`
+        : `${baseName}${suffix}_(${count}).${format}`;
 
       used[key] = count + 1;
       chrome.storage.local.set({ usedFilenames: used });
 
-      chrome.runtime.sendMessage({ type: 'exportCues', format }, (res) => {
+      // lang 값을 같이 전달
+      chrome.runtime.sendMessage({ type: 'exportCues', format, lang }, (res) => {
         if (!res?.content) {
           document.getElementById('exportMsg').style.display = 'block';
           return;

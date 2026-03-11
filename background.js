@@ -117,10 +117,12 @@ async function translateCues(cues) {
   const BATCH = 10;
   for (let i = 0; i < cues.length; i += BATCH) {
     const batch = cues.slice(i, i + BATCH);
-    // 순차 처리로 로그 순서 보장 + 번역 캐시 활용
-    for (const c of batch) {
-      c.translated = await translateText(c.text);
-    }
+    // await 순차 → Promise.all 병렬
+    await Promise.all(
+      batch.map(async (c) => {
+        c.translated = await translateText(c.text);
+      })
+    );
   }
   return cues;
 }
@@ -223,10 +225,17 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
     chrome.storage.local.get(['lastCues'], (r) => {
       const cues = r.lastCues;
       if (!cues?.length) { sendResponse({ content: null }); return; }
+
       if (req.format === 'md') {
-        const lines = ['# 영한 자막\n', '| 시간 | 영어 | 한국어 |', '|------|------|--------|'];
+        const lines = req.lang === 'en'
+          ? ['# 영어 자막\n', '| 시간 | 영어 |', '|------|------|']
+          : ['# 영한 자막\n', '| 시간 | 영어 | 한국어 |', '|------|------|--------|'];
         for (const c of cues) {
-          lines.push(`| ${formatTime(c.start)} | ${c.text} | ${c.translated || ''} |`);
+          if (req.lang === 'en') {
+            lines.push(`| ${formatTime(c.start)} | ${c.text} |`);
+          } else {
+            lines.push(`| ${formatTime(c.start)} | ${c.text} | ${c.translated || ''} |`);
+          }
         }
         sendResponse({ content: lines.join('\n') });
       } else {
@@ -234,7 +243,7 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
         for (const c of cues) {
           lines.push(`[${formatTime(c.start)} ~ ${formatTime(c.end)}]`);
           lines.push(`EN: ${c.text}`);
-          lines.push(`KO: ${c.translated || ''}`);
+          if (req.lang !== 'en') lines.push(`KO: ${c.translated || ''}`);
           lines.push('');
         }
         sendResponse({ content: lines.join('\n') });
